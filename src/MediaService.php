@@ -4,7 +4,7 @@ namespace JobMetric\Media;
 
 use Illuminate\Contracts\Foundation\Application;
 use JobMetric\Media\Object\File;
-use JobMetric\Media\Object\Category;
+use JobMetric\Media\Object\Folder;
 use JobMetric\Media\Object\Common;
 
 class MediaService
@@ -39,13 +39,13 @@ class MediaService
     }
 
     /**
-     * get instance category object
+     * get instance folder object
      *
-     * @return Category
+     * @return Folder
      */
-    public function category(): Category
+    public function folder(): Folder
     {
-        return Category::getInstance();
+        return Folder::getInstance();
     }
 
     /**

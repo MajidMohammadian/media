@@ -1,10 +1,8 @@
 <?php
 
-namespace JobMetric\Media\Providers;
+namespace JobMetric\Media;
 
 use Illuminate\Support\ServiceProvider;
-use JobMetric\Metadata\Providers\MetadataServiceProvider;
-use JobMetric\Media\MediaService;
 
 class MediaServiceProvider extends ServiceProvider
 {
@@ -14,7 +12,7 @@ class MediaServiceProvider extends ServiceProvider
             return new MediaService($app);
         });
 
-        $this->mergeConfigFrom(__DIR__.'/../../config/config.php', 'jmedia');
+        $this->mergeConfigFrom(__DIR__.'/../config/config.php', 'jmedia');
     }
 
     /**
@@ -28,7 +26,7 @@ class MediaServiceProvider extends ServiceProvider
         $this->registerPublishables();
 
         // set translations
-        $this->loadTranslationsFrom(realpath(__DIR__.'/../../lang'), 'jmedia');
+        $this->loadTranslationsFrom(realpath(__DIR__.'/../lang'), 'jmedia');
     }
 
     /**
@@ -39,7 +37,7 @@ class MediaServiceProvider extends ServiceProvider
     protected function registerMigrations(): void
     {
         if($this->app->runningInConsole()) {
-            $this->loadMigrationsFrom(__DIR__.'/../../database/migrations');
+            $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         }
     }
 
@@ -53,12 +51,12 @@ class MediaServiceProvider extends ServiceProvider
         if($this->app->runningInConsole()) {
             // publish config
             $this->publishes([
-                realpath(__DIR__.'/../../config/config.php') => config_path('jmedia.php')
+                realpath(__DIR__.'/../config/config.php') => config_path('jmedia.php')
             ], 'media-config');
 
             // publish migration
             $this->publishes([
-                realpath(__DIR__.'/../../database/migrations') => database_path('migrations')
+                realpath(__DIR__.'/../database/migrations') => database_path('migrations')
             ], 'media-migrations');
         }
     }

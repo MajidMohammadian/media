@@ -56,7 +56,7 @@
     "extra": {
         "laravel": {
             "providers": [
-                "JobMetric\\Media\\Providers\\MediaServiceProvider"
+                "JobMetric\\Media\\MediaServiceProvider"
             ],
             "aliases": {
                 "JMedia": "JobMetric\\Media\\Facades\\MediaService"

@@ -18,7 +18,7 @@ Add the service provider to the providers array in the config/app.php config fil
 
     ...
 
-    JobMetric\Media\Providers\MediaServiceProvider::class,
+    JobMetric\Media\MediaServiceProvider::class,
 ]
 ```
 
@@ -28,7 +28,7 @@ Copy the `config` file from `vendor/jobmetric/media/config/config.php` to `confi
 Run the following command to publish the package config file:
 
 ```bash
-php artisan vendor:publish --provider="JobMetric\Media\Providers\MediaServiceProvider" --tag="media-config"
+php artisan vendor:publish --provider="JobMetric\Media\MediaServiceProvider" --tag="media-config"
 ```
 
 You should now have a `config/media.php` file that allows you to configure the basics of this package.
@@ -38,7 +38,7 @@ You should now have a `config/media.php` file that allows you to configure the b
 You need to publish the migration to create the `medias` table:
 
 ```php
-php artisan vendor:publish --provider="JobMetric\Media\Providers\MediaServiceProvider" --tag="media-migrations"
+php artisan vendor:publish --provider="JobMetric\Media\MediaServiceProvider" --tag="media-migrations"
 ```
 
 After that, you need to run migrations.

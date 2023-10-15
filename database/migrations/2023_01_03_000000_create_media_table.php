@@ -29,14 +29,17 @@ return new class extends Migration {
              */
 
             $table->string('mime_type')->nullable()->index();
-            $table->unsignedBigInteger('size')->default(0)->index();
+            $table->unsignedBigInteger('size')->nullable()->index();
             /**
-             * if type=c -> size=0 else size>=0
+             * if type=c -> size=null - type=f -> size>=0
              */
 
             $table->string('content_id', 40)->nullable()->unique()->index();
             /**
              * sha1 content file unique
+             *
+             * type=c -> content_id=null
+             * type=f -> content_id=sha1(file_content)
              */
 
             $table->json('additional')->nullable();
@@ -52,7 +55,7 @@ return new class extends Migration {
              * value: public, avatar, ...
              */
 
-            $table->string('filename')->unique();
+            $table->string('filename')->nullable()->unique();
             /**
              * filename = uuid + . + extension
              */

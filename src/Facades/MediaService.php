@@ -6,7 +6,7 @@ use Illuminate\Support\Facades\Facade;
 
 /**
  * @method static \JobMetric\Media\Object\Common common()
- * @method static \JobMetric\Media\Object\Category category()
+ * @method static \JobMetric\Media\Object\Folder folder()
  * @method static \JobMetric\Media\Object\File file()
  *
  * @see \JobMetric\Media\MediaService

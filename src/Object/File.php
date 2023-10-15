@@ -6,10 +6,18 @@ use Exception;
 use JMedia;
 use JobMetric\Media\Enums\MediaTypeEnum;
 use JobMetric\Media\Events\UploadFileEvent;
+use JobMetric\Media\Exceptions\CollectionNotFoundException;
 use JobMetric\Media\Exceptions\DiskNotDefinedException;
 use JobMetric\Media\Exceptions\DuplicateFileException;
+use JobMetric\Media\Exceptions\DuplicateFileNameInLocationException;
+use JobMetric\Media\Exceptions\FileMimeTypeIsNotAllowedException;
+use JobMetric\Media\Exceptions\FileNotFoundException;
 use JobMetric\Media\Exceptions\FileNotSendInRequestException;
+use JobMetric\Media\Exceptions\FileSizeException;
 use JobMetric\Media\Exceptions\FolderNotFoundException;
+use JobMetric\Media\Helpers\DiskHelper;
+use JobMetric\Media\Helpers\MediaPathHelper;
+use JobMetric\Media\Helpers\ValidatorHelper;
 use JobMetric\Media\Models\Media;
 use JobMetric\Media\Models\MediaPath;
 use Throwable;
@@ -17,15 +25,7 @@ use Throwable;
 class File
 {
     private static File $instance;
-
-    private ?string $name = null;
-    private ?string $disk = null;
-    private ?string $filename = null;
-    private ?string $mime_type = null;
-    private int $size = 0;
-    private ?string $content_id = null;
-    private array $responsive = [];
-    private string $collection = 'public';
+    private array $file = [];
 
     /**
      * get instance object
@@ -41,21 +41,83 @@ class File
         return File::$instance;
     }
 
-    public function setMedia(Media $media): void
+    /**
+     * set file
+     *
+     * @param Media $media
+     *
+     * @return File
+     * @throws Throwable
+     */
+    public function setFile(Media $media): File
     {
-        $this->name = $media->name;
-        $this->disk = $media->disk;
-        $this->filename = $media->filename;
-        $this->mime_type = $media->mime_type;
-        $this->size = $media->size;
-        $this->content_id = $media->content_id;
-
-        $additional = json_decode($media->additional, true);
-        if(isset($additional['responsive'])) {
-            $this->responsive = $additional['responsive'];
+        if($media->type != MediaTypeEnum::FILE->value) {
+            throw new FileNotFoundException;
         }
 
-        $this->collection = $media->collection;
+        $this->file['name'] = $media->name;
+        $this->file['disk'] = $media->disk;
+        $this->file['filename'] = $media->filename;
+        $this->file['mime_type'] = $media->mime_type;
+        $this->file['size'] = $media->size;
+        $this->file['content_id'] = $media->content_id;
+
+        if(isset($media->additional['user_id'])) {
+            $this->file['user_id'] = $media->additional['user_id'];
+        }
+
+        $this->file['is_responsive'] = false;
+        if(in_array($this->file['mime_type'], config('jmedia.mime_type_responsive'))) {
+            $this->file['is_responsive'] = true;
+            if(isset($media->additional['responsive'])) {
+                $this->file['responsive'] = $media->additional['responsive'];
+            }
+        }
+
+        $this->file['collection'] = $media->collection;
+
+        return $this;
+    }
+
+    /**
+     * get file info
+     *
+     * @return array
+     */
+    public function getInfo(): array
+    {
+        return $this->file;
+    }
+
+    /**
+     * file exist in folder
+     *
+     * @param string   $name
+     * @param int|null $folder
+     * @param string   $collection
+     *
+     * @return bool
+     * @throws Throwable
+     */
+    public function exist(string $name, int $folder = null, string $collection = 'public'): bool
+    {
+        $disk = DiskHelper::getDiskByCollection($collection);
+
+        if(!JMedia::folder()->exist($folder, $collection)) {
+            throw new FolderNotFoundException;
+        }
+
+        if(Media::query()->where([
+            'name'       => $name,
+            'parent_id'  => $folder,
+            'type'       => MediaTypeEnum::FILE->value,
+            'disk'       => $disk,
+            'collection' => $collection,
+        ])->exists()) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -64,18 +126,27 @@ class File
      * @param int|null $folder
      * @param string   $collection
      * @param string   $field
-     * @param string   $disk
      *
-     * @return Media
+     * @return File
      * @throws Throwable
      */
-    public function upload(int $folder = null, string $collection = 'public', string $field = 'file', string $disk = 'default'): Media
+    public function upload(int $folder = null, string $collection = 'public', string $field = 'file'): File
     {
         if(!request()->exists($field)) {
             throw new FileNotSendInRequestException($field);
         }
 
         $file = request()->file($field);
+
+        $name = $file->getClientOriginalName();
+        $mime_type = $file->getMimeType();
+        $size = $file->getSize();
+        $extension = $file->extension();
+        $filename = uuid_create().'.'.$extension;
+
+        ValidatorHelper::mimeType($mime_type);
+        ValidatorHelper::fileSize($size);
+        ValidatorHelper::collection($collection);
 
         $content_id = sha1($file->getContent());
         if(!config('jmedia.collections.'.$collection.'.duplicate_content')) {
@@ -87,23 +158,13 @@ class File
             }
         }
 
-        if(!JMedia::category()->exist($folder, $collection)) {
-            throw new FolderNotFoundException;
+        if($this->exist($name, $folder, $collection)) {
+            throw new DuplicateFileNameInLocationException;
         }
 
-        if($disk == 'default') {
-            $disk = config('jmedia.collections.'.$collection.'.disk');
-        }
+        $disk = DiskHelper::getDiskByCollection($collection);
 
-        if(!array_key_exists($disk, config('filesystems.disks'))) {
-            throw new DiskNotDefinedException($disk);
-        }
-
-        $original_name = $file->getClientOriginalName();
-        $mime_type = $file->getMimeType();
-        $size = $file->getSize();
-        $extension = $file->extension();
-        $filename = uuid_create().'.'.$extension;
+        ValidatorHelper::nameInFolder($name, $folder, $collection);
 
         try {
             $file->storeAs($collection, $filename, $disk);
@@ -117,39 +178,26 @@ class File
          * @var Media $object
          */
         $object = Media::query()->create([
-            'name'       => $original_name,
-            'disk'       => $disk,
-            'filename'   => $filename,
+            'name'       => $name,
             'parent_id'  => $folder,
             'type'       => MediaTypeEnum::FILE->value,
             'mime_type'  => $mime_type,
             'size'       => $size,
             'content_id' => $content_id,
             'additional' => $additional,
+            'disk'       => $disk,
             'collection' => $collection,
+            'filename'   => $filename,
         ]);
+
+        $this->setFile($object);
 
         // Hierarchical Data Closure Table Pattern
-        $level = 0;
-
-        $paths = MediaPath::query()->where('media_id', $folder)->orderBy('level')->get();
-        foreach($paths as $path) {
-            MediaPath::query()->create([
-                'media_id' => $folder,
-                'path_id' => $path->path_id,
-                'level' => $level++
-            ]);
-        }
-
-        MediaPath::query()->create([
-            'media_id' => $object->id,
-            'path_id' => $object->id,
-            'level' => $level
-        ]);
+        MediaPathHelper::store($object, $folder);
 
         event(new UploadFileEvent($object));
 
-        return $object;
+        return $this;
     }
 
     /**
